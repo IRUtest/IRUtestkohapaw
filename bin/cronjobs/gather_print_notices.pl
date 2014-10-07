@@ -139,8 +139,9 @@ else {
     }
 
     close $OUTPUT;
-
-#------------Begin Send to irucirc email edit - [JB]-------------------------------
+#
+# Begin Send to irucirc email edit
+# [JB]
 
 my $msg = MIME::Lite->new(
     From    => 'irucirc@gov.mb.ca',
@@ -148,19 +149,18 @@ my $msg = MIME::Lite->new(
     Cc      => 'iruit@gov.mb.ca',	
     Subject => 'Print Notices (Overdue, Holds, etc.)',
     Type    => 'multipart/mixed',
-)or die "error part 1";
+)or die "Could not create message";
 
 $msg->attach(
     Type     => 'TEXT',
     Data     => "Print Notices for " . $today->output('iso'),
-)or die "error part 2";
+)or die "could not add body text";
 
 $msg->attach(
     Type     => 'text',
     Path     => $output_file,
     Filename => 'printnotices' . $today->output('iso') . '.html',	
-)or die "error part 3";
+)or die "Could not add attachment";
 
-
-$msg->send or die "error part 4";
+$msg->send or die "Could not send";
 }
