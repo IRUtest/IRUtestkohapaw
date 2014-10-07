@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+
+#This file is used to generate response messages to patrons who have registered via
+#the OPAC
+
+use strict;
+use warnings;
+
+use CGI;
+
+use C4::Members;
+use Koha::AuthUtils qw(hash_password);
+use C4::Auth;
+use C4::Output;
+use C4::Context;
+use String::Random qw( random_string );
+use Email::Valid;
+
+#For now. May want to switch to message queue at some point
+use MIME::Lite;
+use Mail::Sendmail;
+
+#Late may want this to automatically change borrower to rejected category if they are rejected
+#my $cgi = new CGI;
+#my $dbh   = C4::Context->dbh;
+my $input = new CGI;
+my $action = $input->param('op');
+
+my ($template, $loggedinuser, $cookie)
+    = get_template_and_user({template_name => "members/confirmpatron.tmpl",
+           query => $input,
+           type => "intranet",
+           authnotrequired => 0,
+           flagsrequired => {borrowers => 1},
+       });
+
+my $borrower = GetMemberDetails($input->param('borrowernumber'), undef);  #$borrower is a hash whose keys are the columns of the borrowers table
+
+my $body = <<END_BODY;
+Dear $borrower->{'firstname'} $borrower->{'surname'},
+<br><br>
+Your request to register with the library has been received.
+END_BODY
+
+if ( $action eq 'accept' ) {
+	$body .= <<END_ACCEPT;
+<br><br>
+Your request has been approved and your account has been activated.<br><br>
+Your card number is $borrower->{'cardnumber'}, which is used to sign in to the <a href="http://library.edu.gov.mb.ca>Online Catalogue</a>.<br><br>
+Please select <strong>Log into your account</strong> at the top right, and the select the link to set up your password.  
+This is used as an additional security measure to protect your information.<br><br>
+If  
+END_ACCEPT
+}
+else {
+	$body .= <<END_REJECT;
+<br><br>
+Your request has not been approved.  Please review our clientelle information <a href="http://www.edu.gov.mb.ca/k12/mel/who.html>here</a>.
+<br><br>
+Should you feel this decision has been made in error, or should
+END_REJECT
+
+$body .= <<END_CLOSE;
+you require any additional assistance, please do not hesistate to <a href="http://www.edu.gov.mb.ca/k12/mel/contact.html">contact</a> the library.
+<br><br>
+Thank you,
+<br><br>
+Access/Circulation<br>
+Manitoba Education Library<br>
+1181 Portage Ave <br>
+Winnipeg, Manitoba<br>
+(204)945-5371<br>
+(800)592-7330<br>
+END_CLOSE
+}
+my $msg = MIME::Lite->new(
+	From	=> 'irucirc@gov.mb.ca',
+	To	=> $borrower->{'email'},
+	Subject => 'Manitoba Education Library Application',
+	Type	=> 'text/html',
+	Data 	=>  $body,
+) or die "Error creating email";
+$msg->send;
+
+
+
+output_html_with_http_headers $input, $cookie, $template->output;
